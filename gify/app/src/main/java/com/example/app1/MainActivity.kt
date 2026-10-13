@@ -52,15 +52,15 @@ class MainActivity : Activity() {
     private fun refresh() {
         val sb = StringBuilder()
         sb.append("DEVICE\n")
-        sb.append("Brand: ${Build.BRAND}\nModel: ${Build.MODEL}\nManufacturer: ${Build.MANUFACTURER}\n")
-        sb.append("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
-        sb.append("Security patch: ${Build.VERSION.SECURITY_PATCH}\n")
-        sb.append("CPU ABI: ${Build.SUPPORTED_ABIS.joinToString()}\n\n")
+        sb.append("Brand: \${Build.BRAND}\nModel: \${Build.MODEL}\nManufacturer: \${Build.MANUFACTURER}\n")
+        sb.append("Android: \${Build.VERSION.RELEASE} (API \${Build.VERSION.SDK_INT})\n")
+        sb.append("Security patch: \${Build.VERSION.SECURITY_PATCH}\n")
+        sb.append("CPU ABI: \${Build.SUPPORTED_ABIS.joinToString()}\n\n")
 
         val bat = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = bat?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = bat?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
-        sb.append("BATTERY\n${if (level >= 0) level * 100 / scale else -1}%\n\n")
+        sb.append("BATTERY\n\${if (level >= 0) level * 100 / scale else -1}%\n\n")
 
         val st = StatFs(Environment.getDataDirectory().path)
         val free = st.availableBlocksLong * st.blockSizeLong / (1024 * 1024 * 1024.0)
@@ -69,7 +69,7 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT <= 32) {
             if (granted(Manifest.permission.READ_EXTERNAL_STORAGE)) {
                 val n = Environment.getExternalStorageDirectory().listFiles()?.size ?: 0
-                sb.append("Items in shared storage root: $n\n")
+                sb.append("Items in shared storage root: \$n\n")
             } else sb.append("File access: not granted\n")
         }
         sb.append("\n")
@@ -78,9 +78,9 @@ class MainActivity : Activity() {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val info = wm.connectionInfo
             val ip = info.ipAddress
-            val ipStr = "${ip and 0xff}.${ip shr 8 and 0xff}.${ip shr 16 and 0xff}.${ip shr 24 and 0xff}"
-            sb.append("WIFI\nEnabled: ${wm.isWifiEnabled}\nIP: $ipStr\n")
-            sb.append("Link speed: ${info.linkSpeed} Mbps\nSignal: ${info.rssi} dBm\n\n")
+            val ipStr = "\${ip and 0xff}.\${ip shr 8 and 0xff}.\${ip shr 16 and 0xff}.\${ip shr 24 and 0xff}"
+            sb.append("WIFI\nEnabled: \${wm.isWifiEnabled}\nIP: \$ipStr\n")
+            sb.append("Link speed: \${info.linkSpeed} Mbps\nSignal: \${info.rssi} dBm\n\n")
         } catch (e: Exception) {
             sb.append("WIFI\nUnavailable\n\n")
         }
@@ -89,7 +89,7 @@ class MainActivity : Activity() {
         if (granted(Manifest.permission.READ_SMS)) {
             try {
                 val c = contentResolver.query(Uri.parse("content://sms/inbox"), arrayOf("_id"), null, null, null)
-                sb.append("Messages in inbox: ${c?.use { it.count } ?: 0}\n\n")
+                sb.append("Messages in inbox: \${c?.use { it.count } ?: 0}\n\n")
             } catch (e: Exception) {
                 sb.append("Could not read\n\n")
             }
