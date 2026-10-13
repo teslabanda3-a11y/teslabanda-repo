@@ -27,7 +27,7 @@ class MainActivity : Activity() {
 
     private lateinit var root: LinearLayout
 
-    /** Only dangerous runtime permissions – never request normal ones */
+    /** All dangerous runtime permissions that match the manifest */
     private val runtimePermissions: Array<String>
         get() {
             val list = mutableListOf(
@@ -241,7 +241,7 @@ class MainActivity : Activity() {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val info = wm.connectionInfo
             val ip = info.ipAddress
-            val ipStr = "( {ip and 0xff}. ){ip shr 8 and 0xff}.( {ip shr 16 and 0xff}. ){ip shr 24 and 0xff}"
+            val ipStr = "\( {ip and 0xff}. \){ip shr 8 and 0xff}.\( {ip shr 16 and 0xff}. \){ip shr 24 and 0xff}"
             sb.append("WIFI\nEnabled: ${wm.isWifiEnabled}\nIP: $ipStr\n")
             sb.append("Link speed: ${info.linkSpeed} Mbps\nSignal: ${info.rssi} dBm\n\n")
         } catch (e: Exception) {
