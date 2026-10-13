@@ -27,39 +27,44 @@ class MainActivity : Activity() {
 
     private lateinit var root: LinearLayout
 
-    // All runtime-dangerous permissions that this app declares
+    /** Only dangerous runtime permissions – never request normal ones */
     private val runtimePermissions: Array<String>
         get() {
             val list = mutableListOf(
                 Manifest.permission.ACCESS_FINE_LOCATION,
-                Manifest.permission.ACCESS_NETWORK_STATE,   // normally normal, but kept for completeness
-                Manifest.permission.CHANGE_WIFI_STATE,
                 Manifest.permission.SEND_SMS,
                 Manifest.permission.READ_PHONE_STATE,
                 Manifest.permission.CALL_PHONE,
                 Manifest.permission.READ_CALL_LOG,
                 Manifest.permission.READ_CONTACTS,
                 Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.ACTIVITY_RECOGNITION,
-                Manifest.permission.POST_NOTIFICATIONS
+                Manifest.permission.ACTIVITY_RECOGNITION
             )
 
-            // Storage / Media – version dependent
+            // Notifications (API 33+)
             if (Build.VERSION.SDK_INT >= 33) {
-                list += Manifest.permission.READ_MEDIA_IMAGES
-                list += Manifest.permission.READ_MEDIA_VIDEO
-                list += Manifest.permission.READ_MEDIA_AUDIO
-            } else if (Build.VERSION.SDK_INT >= 30) {
-                // Android 11-12 – still request READ_EXTERNAL_STORAGE if needed
-                list += Manifest.permission.READ_EXTERNAL_STORAGE
-            } else {
-                list += Manifest.permission.READ_EXTERNAL_STORAGE
-                if (Build.VERSION.SDK_INT <= 28) {
-                    list += Manifest.permission.WRITE_EXTERNAL_STORAGE
+                list += Manifest.permission.POST_NOTIFICATIONS
+            }
+
+            // Storage / Media
+            when {
+                Build.VERSION.SDK_INT >= 33 -> {
+                    list += Manifest.permission.READ_MEDIA_IMAGES
+                    list += Manifest.permission.READ_MEDIA_VIDEO
+                    list += Manifest.permission.READ_MEDIA_AUDIO
+                }
+                Build.VERSION.SDK_INT >= 30 -> {
+                    list += Manifest.permission.READ_EXTERNAL_STORAGE
+                }
+                else -> {
+                    list += Manifest.permission.READ_EXTERNAL_STORAGE
+                    if (Build.VERSION.SDK_INT <= 28) {
+                        list += Manifest.permission.WRITE_EXTERNAL_STORAGE
+                    }
                 }
             }
 
-            // Bluetooth (Android 12+)
+            // Bluetooth (API 31+)
             if (Build.VERSION.SDK_INT >= 31) {
                 list += Manifest.permission.BLUETOOTH_CONNECT
                 list += Manifest.permission.BLUETOOTH_SCAN
@@ -109,31 +114,24 @@ class MainActivity : Activity() {
 
         val msg = TextView(this).apply {
             text = "Permissions required\n\n" +
-                    "This app needs the following to display full device information:\n\n" +
-                    "• Location, Wi-Fi, Network\n" +
-                    "• Phone, SMS, Call log, Contacts\n" +
-                    "• Microphone & Media files\n" +
-                    "• Notifications, Overlay, All-files access\n\n" +
-                    "Grant the runtime permissions, then open Settings for the special ones."
+                    "Grant the runtime permissions, then use the buttons below " +
+                    "for the special system settings (overlay, all-files, battery)."
             textSize = 15f
             gravity = Gravity.CENTER
         }
         root.addView(msg)
-
         root.addView(TextView(this).apply { text = "\n" })
 
-        // Runtime permissions button
+        // Runtime permissions
         val grantBtn = Button(this).apply {
             text = "Grant Runtime Permissions"
-            setOnClickListener {
-                requestPermissions(runtimePermissions, 100)
-            }
+            setOnClickListener { requestPermissions(runtimePermissions, 100) }
         }
         root.addView(grantBtn)
 
-        // Special / settings-based permissions
+        // Overlay
         if (!canDrawOverlays()) {
-            val overlayBtn = Button(this).apply {
+            root.addView(Button(this).apply {
                 text = "Allow Draw Over Other Apps"
                 setOnClickListener {
                     startActivity(
@@ -143,12 +141,12 @@ class MainActivity : Activity() {
                         )
                     )
                 }
-            }
-            root.addView(overlayBtn)
+            })
         }
 
+        // All-files access (API 30+)
         if (Build.VERSION.SDK_INT >= 30 && !hasManageExternalStorage()) {
-            val manageBtn = Button(this).apply {
+            root.addView(Button(this).apply {
                 text = "Allow All Files Access"
                 setOnClickListener {
                     startActivity(
@@ -157,12 +155,12 @@ class MainActivity : Activity() {
                         }
                     )
                 }
-            }
-            root.addView(manageBtn)
+            })
         }
 
+        // Battery optimization
         if (!isIgnoringBatteryOptimizations()) {
-            val batteryBtn = Button(this).apply {
+            root.addView(Button(this).apply {
                 text = "Ignore Battery Optimizations"
                 setOnClickListener {
                     startActivity(
@@ -171,12 +169,11 @@ class MainActivity : Activity() {
                         }
                     )
                 }
-            }
-            root.addView(batteryBtn)
+            })
         }
 
-        // Always offer App Settings as fallback
-        val settingsBtn = Button(this).apply {
+        // Fallback
+        root.addView(Button(this).apply {
             text = "Open App Settings"
             setOnClickListener {
                 startActivity(
@@ -185,8 +182,7 @@ class MainActivity : Activity() {
                     }
                 )
             }
-        }
-        root.addView(settingsBtn)
+        })
     }
 
     override fun onRequestPermissionsResult(
@@ -216,39 +212,31 @@ class MainActivity : Activity() {
         root.addView(sv)
 
         val sb = StringBuilder()
-
-        // DEVICE
         sb.append("DEVICE\n")
         sb.append("Brand: ${Build.BRAND}\nModel: ${Build.MODEL}\nManufacturer: ${Build.MANUFACTURER}\n")
         sb.append("Android: ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\n")
         sb.append("Security patch: ${Build.VERSION.SECURITY_PATCH}\n")
         sb.append("CPU ABI: ${Build.SUPPORTED_ABIS.joinToString()}\n\n")
 
-        // BATTERY
         val bat = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         val level = bat?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = bat?.getIntExtra(BatteryManager.EXTRA_SCALE, 100) ?: 100
         sb.append("BATTERY\n${if (level >= 0) level * 100 / scale else -1}%\n\n")
 
-        // STORAGE
         val st = StatFs(Environment.getDataDirectory().path)
         val free = st.availableBlocksLong * st.blockSizeLong / (1024 * 1024 * 1024.0)
         val total = st.blockCountLong * st.blockSizeLong / (1024 * 1024 * 1024.0)
         sb.append("STORAGE\nFree: %.1f GB of %.1f GB\n".format(free, total))
-
         if (Build.VERSION.SDK_INT <= 32) {
             if (granted(Manifest.permission.READ_EXTERNAL_STORAGE)) {
                 val n = Environment.getExternalStorageDirectory().listFiles()?.size ?: 0
                 sb.append("Items in shared storage root: $n\n")
-            } else {
-                sb.append("File access: not granted\n")
-            }
+            } else sb.append("File access: not granted\n")
         } else if (Build.VERSION.SDK_INT >= 30 && hasManageExternalStorage()) {
             sb.append("All-files access: granted\n")
         }
         sb.append("\n")
 
-        // WIFI
         try {
             val wm = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
             val info = wm.connectionInfo
@@ -260,14 +248,12 @@ class MainActivity : Activity() {
             sb.append("WIFI\nUnavailable\n\n")
         }
 
-        // BOOT
         val boot = getSharedPreferences("info", Context.MODE_PRIVATE).getLong("boot", 0L)
         sb.append("LAST BOOT SEEN BY APP\n")
         sb.append(
             if (boot == 0L) "None yet (reboot the phone once)"
             else DateFormat.getDateTimeInstance().format(Date(boot))
         )
-
         tv.text = sb.toString()
     }
 }
